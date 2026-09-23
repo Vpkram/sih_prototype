@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SIH Prototype - AI Vehicle Tracking & Trajectory System</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    
+    <!-- Leaflet Heatmap Plugin CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.heat/0.2.0/leaflet-heat.js"></script>
+
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/frontend/style.css">
+</head>
+<body>
+    <!-- Police Authentication Login Screen Gating Modal -->
+    <div id="login-screen" class="login-screen-wrapper">
+        <div class="login-card">
+            <div class="login-header">
+                <div class="login-badge-icon">
+                    <i class="fa-solid fa-shield-halved"></i>
+                </div>
+                <h2>POLICE AUTHENTICATION</h2>
+                <p class="login-subtitle">Authorized Personnel Only — City Traffic Command Center</p>
+            </div>
+
+            <form id="login-form" onsubmit="handleLogin(event)">
+                <div class="form-group">
+                    <label for="login-username"><i class="fa-solid fa-user input-icon-sm"></i> Username:</label>
+                    <input type="text" id="login-username" placeholder="Enter police ID or username" required autocomplete="username" class="file-input">
+                </div>
+                <div class="form-group">
+                    <label for="login-password"><i class="fa-solid fa-lock input-icon-sm"></i> Password:</label>
+                    <input type="password" id="login-password" placeholder="Enter passcode" required autocomplete="current-password" class="file-input">
+                </div>
+                <button type="submit" class="btn btn-primary btn-full" style="margin-top: 1rem; padding: 0.75rem;">
+                    <i class="fa-solid fa-right-to-bracket"></i> Login to Command Center
+                </button>
+            </form>
+
+            <div id="login-error" class="status-msg error hidden" style="margin-top: 1rem;">
+                <i class="fa-solid fa-circle-exclamation"></i> Invalid credentials
+            </div>
+
+            <div class="login-hint-box">
+                <i class="fa-solid fa-key text-amber"></i> Username: <strong>admin</strong> &nbsp;|&nbsp; Password: <strong>police123</strong>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Dashboard Container -->
+    <div class="app-container hidden" id="app-container">
+        <!-- Header Nav -->
+        <header class="navbar">
+            <div class="brand">
+                <i class="fa-solid fa-car-side brand-icon"></i>
+                <div class="brand-text">
+                    <h1>SIH PROTOTYPE</h1>
+                    <span class="subtitle">AI Multi-Camera Vehicle Trajectory Tracking</span>
+                </div>
+            </div>
+            
+            <div class="header-actions">
+                <button id="sim-toggle-btn" class="btn btn-sim-active" onclick="toggleSimulation()">
+                    <i class="fa-solid fa-satellite-dish"></i> Live Simulation: <span id="sim-status-label">ON</span>
+                </button>
+                <button id="btn-seed-data" class="btn btn-secondary" onclick="seedDemoData()">
+                    <i class="fa-solid fa-database"></i> Seed Demo Data
+                </button>
+                <button id="btn-reset-demo" class="btn btn-warning" onclick="resetDemoEnvironment()">
+                    <i class="fa-solid fa-rotate-left"></i> Reset for Demo
+                </button>
+                <div class="status-indicator online">
+                    <span class="pulse-dot"></span>
+                    <span class="status-text">System Active</span>
+                </div>
+                <button id="btn-logout" class="btn btn-secondary" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;" onclick="handleLogout()">
+                    <i class="fa-solid fa-right-from-bracket"></i> Logout
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Dashboard Content Grid -->
+        <main class="dashboard-grid">
+            <!-- Sidebar / Control Panel -->
+            <aside class="control-panel">
+                <!-- Trajectory Search Box -->
+                <div class="card search-card">
+                    <div class="card-header">
+                        <i class="fa-solid fa-magnifying-glass-location"></i>
+                        <h2>Vehicle Trajectory Search</h2>
+                    </div>
+                    <div class="search-form">
+                        <div class="input-group">
+                            <i class="fa-solid fa-id-card input-icon"></i>
+                            <input type="text" id="plate-input" placeholder="e.g. KA01AB1234" autocomplete="off" style="text-transform: uppercase;">
+                            <button id="search-btn" class="btn btn-primary" onclick="searchTrajectory()">
+                                <i class="fa-solid fa-route"></i> Track
+                            </button>
+                        </div>
+                        <div class="sample-plates">
+                            <span class="sample-label">Quick Samples:</span>
+                            <span class="plate-chip" onclick="quickSearch('KA01AB1234')">KA01AB1234</span>
+                            <span class="plate-chip" onclick="quickSearch('KA05MH8899')">KA05MH8899</span>
+                            <span class="plate-chip" onclick="quickSearch('DL03CC4567')">DL03CC4567</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Trajectory Details Info Card -->
+                <div class="card trajectory-card hidden" id="trajectory-info">
+                    <div class="card-header">
+                        <i class="fa-solid fa-timeline"></i>
+                        <h2>Route Analysis</h2>
+                        <span class="badge" id="plate-badge">---</span>
+                    </div>
+                    <div class="stats-grid">
+                        <div class="stat-box">
+                            <span class="stat-value" id="stat-detections">0</span>
+                            <span class="stat-label">Detections</span>
+                        </div>
+                        <div class="stat-box">
+                            <span class="stat-value" id="stat-cameras">0</span>
+                            <span class="stat-label">Cameras</span>
+                        </div>
+                        <div class="stat-box">
+                            <span class="stat-value" id="stat-duration">0 min</span>
+                            <span class="stat-label">Duration</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Live & Predicted Tracking Info Box -->
+                    <div class="predicted-tracking-box" id="predicted-tracking-box">
+                        <div class="sighting-badge" id="sighting-badge">
+                            <i class="fa-solid fa-eye text-green"></i>
+                            <span>Last confirmed sighting: <strong id="sighting-location" style="color: #60a5fa;">--</strong>, <span id="sighting-time" style="color: #34d399; font-weight: 600;">--</span></span>
+                        </div>
+                        <div class="eta-prediction-badge hidden" id="eta-badge">
+                            <i class="fa-solid fa-location-arrow text-amber"></i>
+                            <span id="eta-text">Predicted to reach -- in ~--</span>
+                        </div>
+                    </div>
+                    
+                    <div class="timeline-container" id="timeline-list">
+                        <!-- Dynamic timeline steps will be injected here -->
+                    </div>
+                    
+                    <div class="trajectory-actions-row" style="margin-top: 0.8rem; display: flex; flex-direction: column; gap: 0.5rem;">
+                        <button id="btn-replay-route" class="btn btn-accent btn-full" style="padding: 0.5rem; font-size: 0.85rem;" onclick="replayTrajectory()">
+                            <i class="fa-solid fa-play"></i> Replay Route
+                        </button>
+                        <button class="btn btn-clear-route" style="margin-top: 0;" onclick="clearTrajectory()">
+                            <i class="fa-solid fa-xmark"></i> Clear Trajectory Line
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Blacklist Vehicle Form Card -->
+                <div class="card blacklist-card">
+                    <div class="card-header">
+                        <i class="fa-solid fa-shield-halved text-danger"></i>
+                        <h2>Blacklist Vehicle</h2>
+                    </div>
+                    <form id="blacklist-form" onsubmit="handleBlacklistSubmit(event)">
+                        <div class="form-group">
+                            <input type="text" id="bl-plate-input" placeholder="Plate (e.g. KA05MH8899)" autocomplete="off" style="text-transform: uppercase;" class="file-input" required>
+                        </div>
+                        <div class="form-group">
+                            <input type="text" id="bl-reason-input" placeholder="Reason (e.g. Stolen Vehicle Report)" autocomplete="off" class="file-input" required>
+                        </div>
+                        <button type="submit" class="btn btn-danger btn-full" style="padding: 0.5rem; font-size: 0.85rem;">
+                            <i class="fa-solid fa-triangle-exclamation"></i> Flag & Add to Blacklist
+                        </button>
+                    </form>
+                    <div id="bl-status" class="status-msg hidden"></div>
+                </div>
+
+                <!-- Secondary Video Upload (Collapsible Optional Flow) -->
+                <details class="card upload-details">
+                    <summary class="summary-header">
+                        <i class="fa-solid fa-file-video text-blue"></i>
+                        <span class="summary-title">Process Custom Video File (Optional)</span>
+                        <i class="fa-solid fa-chevron-down summary-arrow"></i>
+                    </summary>
+                    <div class="upload-content">
+                        <form id="upload-form" onsubmit="handleVideoUpload(event)">
+                            <div class="form-group" style="margin-top: 0.8rem;">
+                                <label for="camera-select"><i class="fa-solid fa-video"></i> Target Camera:</label>
+                                <select id="camera-select" class="custom-select">
+                                    <option value="camera_1">Camera 1 - Silk Board Junction</option>
+                                    <option value="camera_2">Camera 2 - HSR Layout 27th Main</option>
+                                    <option value="camera_3">Camera 3 - Koramangala Sony World</option>
+                                    <option value="camera_4">Camera 4 - Indiranagar 100ft Road</option>
+                                    <option value="camera_5">Camera 5 - MG Road Metro Station</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="video-file"><i class="fa-solid fa-file-video"></i> MP4 Video File:</label>
+                                <input type="file" id="video-file" accept="video/*" required class="file-input">
+                            </div>
+                            <button type="submit" id="btn-upload" class="btn btn-secondary btn-full">
+                                <i class="fa-solid fa-bolt"></i> Process Video File
+                            </button>
+                        </form>
+                        <div id="upload-status" class="status-msg hidden"></div>
+                    </div>
+                </details>
+            </aside>
+
+            <!-- Leaflet Map Container -->
+            <section class="map-section">
+                <div class="map-wrapper">
+                    <div id="map"></div>
+                    <div class="map-overlay-info">
+                        <span id="active-route-label"><i class="fa-solid fa-map-location-dot"></i> Multi-Camera Network Overview</span>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Security Alerts & Threat Feed Section -->
+        <section class="alerts-section">
+            <div class="card alerts-card">
+                <div class="events-header">
+                    <div class="events-title">
+                        <i class="fa-solid fa-triangle-exclamation text-danger"></i>
+                        <h2>Security Alerts & Threat Feed</h2>
+                        <span class="badge badge-alert-pulse hidden" id="alert-count-badge">0 UNREAD ALERTS</span>
+                    </div>
+                    <button class="btn btn-secondary btn-sm" onclick="acknowledgeAlerts()">
+                        <i class="fa-solid fa-check-double"></i> Mark All Acknowledged
+                    </button>
+                </div>
+                <div class="table-responsive" style="max-height: 220px;">
+                    <table class="events-table alerts-table">
+                        <thead>
+                            <tr>
+                                <th>Timestamp</th>
+                                <th>Alert Type</th>
+                                <th>Vehicle Plate</th>
+                                <th>Camera Location</th>
+                                <th>Threat / Alert Details</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="alerts-tbody">
+                            <tr>
+                                <td colspan="6" class="loading-td">No security alerts detected.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- Live Events Feed Section -->
+        <section class="events-section" style="margin-top: 1rem;">
+            <div class="card events-card">
+                <div class="events-header">
+                    <div class="events-title">
+                        <i class="fa-solid fa-bell-concierge"></i>
+                        <h2>Live Detection Events Feed</h2>
+                        <span class="live-pulse"><i class="fa-solid fa-circle"></i> Auto-Refreshing</span>
+                    </div>
+                    <div class="events-stats">
+                        <span>Total Detections Logged: <strong id="total-event-count">0</strong></span>
+                    </div>
+                </div>
+                
+                <div class="table-responsive">
+                    <table class="events-table">
+                        <thead>
+                            <tr>
+                                <th># ID</th>
+                                <th>Timestamp</th>
+                                <th>Plate Number</th>
+                                <th>Camera ID & Location</th>
+                                <th>Confidence</th>
+                                <th>Plate Crop</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="events-tbody">
+                            <tr>
+                                <td colspan="7" class="loading-td">
+                                    <i class="fa-solid fa-spinner fa-spin"></i> Loading live detection feed...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+        <!-- Traffic Analytics Section -->
+        <section class="analytics-section">
+            <div class="card analytics-card">
+                <div class="analytics-header">
+                    <div class="analytics-title">
+                        <i class="fa-solid fa-chart-line"></i>
+                        <h2>Traffic Analytics & Density Insights</h2>
+                    </div>
+                    <button class="btn btn-secondary" onclick="toggleHeatmap()">
+                        <i class="fa-solid fa-fire text-amber"></i> Toggle Heatmap Overlay
+                    </button>
+                </div>
+
+                <!-- Stats Overview Badges -->
+                <div class="analytics-stats-grid">
+                    <div class="analytics-stat-card">
+                        <i class="fa-solid fa-gauge-high stat-icon text-blue"></i>
+                        <div>
+                            <span class="analytics-stat-val" id="analytics-avg-speed">-- km/h</span>
+                            <span class="analytics-stat-lbl">Estimated Network Avg Speed</span>
+                        </div>
+                    </div>
+                    <div class="analytics-stat-card">
+                        <i class="fa-solid fa-car-burst stat-icon text-purple"></i>
+                        <div>
+                            <span class="analytics-stat-val" id="analytics-total-vehicles">--</span>
+                            <span class="analytics-stat-lbl">Unique Vehicles Tracked</span>
+                        </div>
+                    </div>
+                    <div class="analytics-stat-card">
+                        <i class="fa-solid fa-video stat-icon text-green"></i>
+                        <div>
+                            <span class="analytics-stat-val" id="analytics-active-cams">5 Active</span>
+                            <span class="analytics-stat-lbl">Camera Nodes Monitored</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2-Column Analytics Content -->
+                <div class="analytics-grid">
+                    <!-- Left: Density Chart -->
+                    <div class="chart-container-card">
+                        <h3><i class="fa-solid fa-chart-bar"></i> Vehicle Density per Camera</h3>
+                        <div class="chart-wrapper">
+                            <canvas id="densityChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Right: Route Flow Analysis Table -->
+                    <div class="flow-container-card">
+                        <h3><i class="fa-solid fa-arrows-split-up-and-left"></i> Route Flow Analysis (Corridors)</h3>
+                        <div class="table-responsive">
+                            <table class="events-table flow-table">
+                                <thead>
+                                    <tr>
+                                        <th>Origin Camera</th>
+                                        <th>➜</th>
+                                        <th>Destination Camera</th>
+                                        <th>Vehicles Passed</th>
+                                        <th>Avg Time</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="flow-tbody">
+                                    <tr>
+                                        <td colspan="5" class="loading-td">Loading route flow analytics...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Custom JS -->
+    <script src="/frontend/app.js"></script>
+</body>
+</html>
